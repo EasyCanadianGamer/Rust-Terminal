@@ -1,0 +1,27 @@
+#V2
+help
+hello
+date
+time
+pwd
+whoami
+ls
+clear
+ls
+cleqr
+clear
+ls
+clear
+ls
+clear
+ls
+clear
+ls
+clea
+clear
+write suckme.txt
+write suckme.txt Ohhh yahhh daddy suck me harder I know you love me suck my balls
+cat suckme.txt
+rm suckme.txt
+clear
+exit

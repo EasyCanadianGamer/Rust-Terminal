@@ -1,0 +1,31 @@
+#V2
+help
+exit
+clear
+help
+hello
+time
+echo SUCK ME HARDER DADDY!
+touch me.txt
+ls
+nano
+clera
+exit
+cd ..
+ls
+cd ter
+cd terminal
+ls
+cleawr
+clear
+ls
+write me.txt
+write me.txt ohh yea
+cat me.txt
+exit
+clear
+ls
+clear
+exit
+clear
+exit
