@@ -7,3 +7,8 @@ edition = "2021"
 chrono = "0.4"
 crossterm = "0.26"
 rustyline = "10.0"
+
+
+tokio = { version = "1", features = ["full"] }
+pty = "0.2.2"
+ratatui = { version = "0.29.0", features = ["all-widgets"] }

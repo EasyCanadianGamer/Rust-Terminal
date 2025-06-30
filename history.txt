@@ -29,3 +29,14 @@ clear
 exit
 clear
 exit
+ls
+clear
+ls
+clear
+ls
+clear
+help
+hello
+whoami
+exit
+ls
