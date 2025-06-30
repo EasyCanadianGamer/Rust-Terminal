@@ -1,110 +1,60 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use futures_util::{SinkExt, StreamExt};
+use std::net::SocketAddr;
+use tauri::Manager;
+use tokio::net::TcpListener;
+use tokio_tungstenite::accept_async;
 mod commands;
 
-use std::io;
-use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use ratatui::{
-    backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    text::{Line},
-    widgets::{Block, Borders, Paragraph},
-    Terminal,
-};
+#[tokio::main]
+async fn main() {
+    // Spawn WebSocket server task
+    tokio::spawn(async {
+        let addr = "127.0.0.1:8080";
+        let listener = TcpListener::bind(&addr).await.expect("Failed to bind");
 
-fn main() -> Result<(), io::Error> {
-    // Set up terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+        println!("WebSocket server running on ws://{}", addr);
 
-    // Run the application
-    let res = run_app(&mut terminal);
+        while let Ok((stream, _)) = listener.accept().await {
+            tokio::spawn(async move {
+                let ws_stream = accept_async(stream)
+                    .await
+                    .expect("WebSocket handshake failed");
 
-    // Restore terminal
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+                let (mut write, mut read) = ws_stream.split();
 
-    if let Err(err) = res {
-        println!("{:?}", err);
-    }
+                while let Some(msg) = read.next().await {
+                    match msg {
+                        Ok(tungstenite::Message::Text(input)) => {
 
-    Ok(())
-}
+                            // Process command
+                            let result = run_command(&input);
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
-    let mut input = String::new(); // Stores user input
-    let mut output = Vec::new();  // Stores command results
-
-    loop {
-        // Draw the UI
-        terminal.draw(|f| {
-            // Layout with two vertical sections
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints(
-                    [
-                        Constraint::Min(5), // Output area
-                        Constraint::Length(3), // Input area
-                    ]
-                    .as_ref(),
-                )
-                .split(f.area()); // Use `f.area()` instead of `f.size()`
-
-            // Output area
-            let output_text: Vec<Line> = output
-                .iter()
-                .map(|line| Line::from(line.clone()))
-                .collect();
-            let output_widget = Paragraph::new(output_text)
-                .block(Block::default().borders(Borders::ALL).title("Output"));
-            f.render_widget(output_widget, chunks[0]);
-
-            // Input area
-            let input_widget = Paragraph::new(input.as_ref())
-                .style(Style::default().fg(Color::Yellow))
-                .block(Block::default().borders(Borders::ALL).title("Input"));
-            f.render_widget(input_widget, chunks[1]);
-        })?;
-
-        // Handle events
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char(c) => input.push(c), // Add character to input
-                    KeyCode::Backspace => {
-                        input.pop(); // Remove last character
-                    }
-                    KeyCode::Enter => {
-                        // Process the input
-                        if input.trim() == "exit" {
-                            return Ok(()); // Exit the application
+                            // Send response
+                            if let Err(e) = write.send(tungstenite::Message::Text(result)).await {
+                                eprintln!("Send error: {}", e);
+                                break;
+                            }
                         }
-                        let result = process_command(input.trim());
-                        output.push(format!("> {}", input));
-                        output.push(result);
-                        input.clear();
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error: {}", e);
+                            break;
+                        }
                     }
-                    _ => {}
                 }
-            }
+            });
         }
-    }
+    });
+
+    // Start Tauri normally
+    tauri::Builder::default()
+        .run(tauri::generate_context!())
+        .expect("error while running tauri app");
 }
 
-fn process_command(input: &str) -> String {
-    let mut result = Vec::new();
-    commands::execute_command(input);
-    result.push(format!("Executed: {}", input));
-    result.join("\n")
+// Mocked command execution (replace with your logic)
+fn run_command(input: &str) -> String {
+    commands::execute_command(input)
 }
